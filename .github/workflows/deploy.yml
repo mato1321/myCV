@@ -1,0 +1,90 @@
+# ─────────────────────────────────────────────────────────────
+# 放在 repo 的 .github/workflows/deploy.yml
+# 用途：把 Lovable（TanStack Start）專案建置成靜態網站，發布到 GitHub Pages
+#
+# 使用前請先確認兩件事：
+#   1. vite.config.ts 裡已經加上 prerender 設定（見說明書第 4 章）
+#   2. Settings → Pages → Source 已經改成「GitHub Actions」
+# ─────────────────────────────────────────────────────────────
+
+name: 建置並發布到 GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # 讓你可以在 Actions 頁面手動按一下重跑
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: 安裝套件
+        run: npm ci || npm install
+
+      - name: 建置
+        run: npm run build
+
+      - name: 整理成 GitHub Pages 吃得下的樣子
+        run: |
+          set -e
+
+          # TanStack Start 的產出在 dist/client（不是 dist）
+          OUT=dist/client
+          if [ ! -d "$OUT" ]; then
+            echo "::error::找不到 $OUT。請確認 vite.config.ts 的 prerender 設定有加對。"
+            echo "目前 dist 裡面有："; ls -R dist || echo "(連 dist 都沒有)"
+            exit 1
+          fi
+
+          # 如果只開了 SPA 模式沒開 prerender，產出會是 _shell.html 而沒有 index.html，
+          # 這種情況下網站首頁會 404，所以幫忙補一份。
+          if [ ! -f "$OUT/index.html" ] && [ -f "$OUT/_shell.html" ]; then
+            echo "沒有 index.html，用 _shell.html 補上"
+            cp "$OUT/_shell.html" "$OUT/index.html"
+          fi
+
+          if [ ! -f "$OUT/index.html" ]; then
+            echo "::error::$OUT 裡沒有 index.html 也沒有 _shell.html，網站會是空的。"
+            ls -la "$OUT"; exit 1
+          fi
+
+          # 找不到的網址一律交還給網站自己處理，使用者重新整理才不會壞掉
+          cp "$OUT/index.html" "$OUT/404.html"
+
+          # 告訴 GitHub Pages 不要用 Jekyll 加工
+          # （底線開頭的檔案例如 _shell.html 會被 Jekyll 直接忽略）
+          touch "$OUT/.nojekyll"
+
+          echo "── 即將發布的內容 ──"
+          ls -la "$OUT"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist/client
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
