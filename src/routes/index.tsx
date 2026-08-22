@@ -157,7 +157,7 @@ function Index() {
         </ul>
 
         <a
-          href="/resume.pdf"
+          href={`${import.meta.env.BASE_URL}resume.pdf`}
           target="_blank"
           rel="noopener"
           className="mt-9 inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-accent"
@@ -266,7 +266,7 @@ function Index() {
       <footer className="border-t border-border pt-8 text-sm text-muted-foreground">
         <p>© 2026 高碩辰　KAO, SHUO-CHEN</p>
         <a
-          href="/resume.pdf"
+          href={`${import.meta.env.BASE_URL}resume.pdf`}
           target="_blank"
           rel="noopener"
           className="mt-2 inline-block font-medium text-accent underline underline-offset-4"
